@@ -11,6 +11,7 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.sk89q.worldguard.util.profile.cache.ProfileCache;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
@@ -22,12 +23,11 @@ import org.bukkit.event.server.PluginEnableEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
-import org.dynmap.DynmapAPI;
+import org.dynmap.DynmapCommonAPI;
 import org.dynmap.markers.AreaMarker;
 import org.dynmap.markers.MarkerAPI;
 import org.dynmap.markers.MarkerSet;
 
-import com.sk89q.squirrelid.cache.ProfileCache;
 import com.sk89q.worldedit.math.BlockVector2;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.world.World;
@@ -48,7 +48,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
     private static final String DEF_INFOWINDOW = "<div class=\"infowindow\"><span style=\"font-size:120%;\">%regionname%</span><br /> Owner <span style=\"font-weight:bold;\">%playerowners%</span><br />Flags<br /><span style=\"font-weight:bold;\">%flags%</span></div>";
     public static final String BOOST_FLAG = "dynmap-boost";
     Plugin dynmap;
-    DynmapAPI api;
+    DynmapCommonAPI api;
     MarkerAPI markerapi;
     BooleanFlag boost_flag;
     int updatesPerTick = 20;
@@ -64,7 +64,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
     Map<String, AreaStyle> ownerstyle;
     Set<String> visible;
     Set<String> hidden;
-    boolean stop; 
+    boolean stop;
     int maxdepth;
 
     @Override
@@ -72,7 +72,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
         log = this.getLogger();
         this.registerCustomFlags();
     }
-    
+
     private static class AreaStyle {
         String strokecolor;
         String unownedstrokecolor;
@@ -101,14 +101,14 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             fillopacity = cfg.getDouble(path+".fillOpacity", 0.35);
         }
     }
-    
+
     public static void info(String msg) {
         log.log(Level.INFO, msg);
     }
     public static void severe(String msg) {
         log.log(Level.SEVERE, msg);
     }
-    
+
     private Map<String, AreaMarker> resareas = new HashMap<String, AreaMarker>();
 
     private String formatInfoWindow(ProtectedRegion region, AreaMarker m) {
@@ -132,7 +132,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
         v = v.replace("%flags%", flgs);
         return v;
     }
-    
+
     private boolean isVisible(String id, String worldname) {
         if((visible != null) && (visible.size() > 0)) {
             if((visible.contains(id) == false) && (visible.contains("world:" + worldname) == false) &&
@@ -146,7 +146,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
         }
         return true;
     }
-    
+
     private void addStyle(String resid, String worldid, AreaMarker m, ProtectedRegion region) {
         AreaStyle as = cusstyle.get(worldid + "/" + resid);
         if(as == null) {
@@ -227,7 +227,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             m.setBoostFlag((b == null)?false:b.booleanValue());
         }
     }
-        
+
     /* Handle specific region */
     private void handleRegion(World world, ProtectedRegion region, Map<String, AreaMarker> newmap) {
         String name = region.getId();
@@ -235,7 +235,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
         name = name.substring(0, 1).toUpperCase() + name.substring(1);
         double[] x = null;
         double[] z = null;
-                
+
         /* Handle areas */
         if(isVisible(region.getId(), world.getName())) {
             String id = region.getId();
@@ -278,7 +278,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             }
             if(use3d) { /* If 3D? */
                 m.setRangeY(l1.getY()+1.0, l0.getY());
-            }            
+            }
             /* Set line and fill properties */
             addStyle(id, world.getName(), m, region);
 
@@ -291,13 +291,13 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             newmap.put(markerid, m);
         }
     }
-    
+
     private class UpdateJob implements Runnable {
         Map<String,AreaMarker> newmap = new HashMap<String,AreaMarker>(); /* Build new map */
         List<World> worldsToDo = null;
         List<ProtectedRegion> regionsToDo = null;
         World curworld = null;
-        
+
         public void run() {
             if (stop) {
                 return;
@@ -365,14 +365,14 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
                 Plugin wg = p.getServer().getPluginManager().getPlugin("WorldGuard");
                 if(wg != null && wg.isEnabled())
                     activate();
-            } else if(name.equals("WorldGuard") && dynmap.isEnabled()) {   
+            } else if(name.equals("WorldGuard") && dynmap.isEnabled()) {
                 activate();
             }
         }
     }
-    
+
     private Metrics metrics;
-    
+
     public void onEnable() {
         info("initializing");
         PluginManager pm = getServer().getPluginManager();
@@ -382,23 +382,23 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             severe("Cannot find dynmap!");
             return;
         }
-        api = (DynmapAPI)dynmap; /* Get API */
+        api = (DynmapCommonAPI)dynmap; /* Get API */
         /* Get WorldGuard */
         Plugin wgp = pm.getPlugin("WorldGuard");
         if(wgp == null) {
             severe("Cannot find WorldGuard!");
             return;
         }
-        
-        getServer().getPluginManager().registerEvents(new OurServerListener(), this);        
-        
+
+        getServer().getPluginManager().registerEvents(new OurServerListener(), this);
+
         /* If both enabled, activate */
         if(dynmap.isEnabled() && wgp.isEnabled())
             activate();
         /* Start up metrics */
 		metrics = new Metrics(this, 14178);
     }
-    
+
     private void registerCustomFlags() {
         try {
             BooleanFlag bf = new BooleanFlag(BOOST_FLAG);
@@ -412,10 +412,10 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
             log.info("Custom flag '" + BOOST_FLAG + "' not registered");
         }
     }
-    
+
     private boolean reload = false;
-    
-    private void activate() {        
+
+    private void activate() {
         /* Now, get markers API */
         markerapi = api.getMarkerAPI();
         if(markerapi == null) {
@@ -432,7 +432,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
         FileConfiguration cfg = getConfig();
         cfg.options().copyDefaults(true);   /* Load defaults, if needed */
         this.saveConfig();  /* Save updates, if needed */
-        
+
         /* Now, add marker set for mobs (make it transient) */
         set = markerapi.getMarkerSet("worldguard.markerset");
         if(set == null)
@@ -461,7 +461,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
         ConfigurationSection sect = cfg.getConfigurationSection("custstyle");
         if(sect != null) {
             Set<String> ids = sect.getKeys(false);
-            
+
             for(String id : ids) {
                 if(id.indexOf('|') >= 0)
                     cuswildstyle.put(id, new AreaStyle(cfg, "custstyle." + id, defstyle));
@@ -472,7 +472,7 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
         sect = cfg.getConfigurationSection("ownerstyle");
         if(sect != null) {
             Set<String> ids = sect.getKeys(false);
-            
+
             for(String id : ids) {
                 ownerstyle.put(id.toLowerCase(), new AreaStyle(cfg, "ownerstyle." + id, defstyle));
             }
@@ -491,9 +491,9 @@ public class DynmapWorldGuardPlugin extends JavaPlugin {
         if(per < 15) per = 15;
         updperiod = (long)(per*20);
         stop = false;
-        
+
         getServer().getScheduler().scheduleSyncDelayedTask(this, new UpdateJob(), 40);   /* First time is 2 seconds */
-        
+
         info("version " + this.getDescription().getVersion() + " is activated");
     }
 
